@@ -1,0 +1,10 @@
+# Example models configuration file for AI models
+# Each entry is separated by '===='
+# Lines starting with # are comments and ignored
+
+provider=OpenAI
+model-id=gpt-4
+====
+provider=SomeOtherAI
+model-id=alpha-v2
+====

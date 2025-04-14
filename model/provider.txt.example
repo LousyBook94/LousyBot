@@ -1,0 +1,12 @@
+# Example provider configuration file for AI providers
+# Each entry is separated by '===='
+# Lines starting with # are comments and ignored
+
+name=OpenAI
+apiKey=sk-your-openai-key
+baseUrl=https://api.openai.com/v1
+====
+name=SomeOtherAI
+apiKey=abcdef123456
+baseUrl=https://someother.ai/api
+====
