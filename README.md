@@ -1,6 +1,6 @@
 # LousyBot 🤖
 
-Welcome to **LousyBot** — a modular, customizable Discord bot created by [LousyBook01](https://github.com/LousyBook-94).  
+Welcome to **LousyBot** — a modular, customizable Discord bot created by [LousyBook01](https://github.com/LousyBook94) with actual LLMS.  
 LousyBot features multi-provider AI support, robust config management, and a friendly codebase for easy extension!
 
 ---
@@ -19,7 +19,7 @@ LousyBot features multi-provider AI support, robust config management, and a fri
 
 1. **Clone the repo:**
    ```sh
-   git clone https://github.com/<your-username>/LousyBot.git
+   git clone https://github.com/LousyBook94/LousyBot.git
    cd LousyBot
    ```
 
@@ -30,7 +30,16 @@ LousyBot features multi-provider AI support, robust config management, and a fri
 
 3. **Configure environment:**
    - Copy `.env.example` to `.env` and fill in your Discord bot token and other variables.
-   - Edit `model/provider.txt` and `model/models.txt` (see `.example` files for format).
+   
+      ```powershell
+      copy .env.example .env
+      ```
+      
+   - Copy `model/provider.txt.example` to `model/provider.txt`, `model/model.txt` is already provided, see both .example files for details on structure
+
+      ```powershell
+      copy model/provider.txt.example model/provider.txt
+      ```
 
 4. **Start the bot:**
    ```sh
@@ -86,9 +95,9 @@ Please update `structure.md` if you add new modules or important files.
 
 ## 🙏 Credits
 
-- Created by [LousyBook01](https://github.com/LousyBook-94)
+- Created by [LousyBook01](https://github.com/LousyBook94)
 - Powered by Python, discord.py, and modern AI APIs
 
 ---
 
-**Happy hacking!** ✨
+**Happy coding!** ✨
