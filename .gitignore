@@ -20,7 +20,7 @@ Thumbs.db
 # Logs and cache
 *.log
 cache/
-model/provider.txt
+model/provider.txt.old
 
 # Custom
 .qodo

@@ -1,4 +1,4 @@
-# LousyBot 🤖
+# LousyBot
 
 Welcome to **LousyBot** — a modular, customizable Discord bot created by [LousyBook01](https://github.com/LousyBook94) with actual LLMS.  
 LousyBot features multi-provider AI support, robust config management, and a friendly codebase for easy extension!

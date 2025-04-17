@@ -1,0 +1,4 @@
+# Pollination AI provider config (Free for everyone)
+name=Pollination
+apiKey=NoAPILol
+baseUrl=https://text.pollinations.ai/openai
