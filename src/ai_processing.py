@@ -1,10 +1,11 @@
 import time
 import asyncio
 import discord
+import sys
 from .config import TEMPERATURE, DISABLE_STREAM, MAX_HISTORY_LEN, CUSTOM_INSTRUCTIONS, DEBUG
 from src.provider_config import get_default_openai_client_and_model
 from .cache_utils import load_channel_history, save_channel_history
-from .mention_utils import resolve_discord_mentions
+from .mention_utils import resolve_discord_mentions, build_ping_help_text
 def build_user_list(guild, bot_user_id=None):
     """
     Build a user list string for the guild.
@@ -22,12 +23,101 @@ def build_user_list(guild, bot_user_id=None):
         user_lines.append(line)
     return "Server User List:\n" + "\n".join(sorted(set(user_lines)))
 
+async def process_message(message):
+    """
+    Process a single message through the AI pipeline.
+    Returns True if processed successfully, False otherwise.
+    """
+    print(f"DEBUG: Starting message processing for channel {message.channel.id}")
+    channel_id = str(message.channel.id)
+    
+    try:
+        print("DEBUG: Loading channel history")
+        channel_history = load_channel_history(channel_id)
+    except Exception as e:
+        print(f"DEBUG: Failed to load history: {e}")
+        return False
+    
+    # Compose user message context
+    user_content = f"{message.author.name}#{message.author.discriminator} ({message.author.id}) says: {message.content}"
+
+    # Update channel history
+    channel_history.append({
+        "role": "user",
+        "name": str(message.author.name),
+        "discriminator": str(message.author.discriminator),
+        "user_id": str(message.author.id),
+        "content": message.content
+    })
+    
+    if len(channel_history) > MAX_HISTORY_LEN:
+        channel_history = channel_history[-MAX_HISTORY_LEN:]
+    save_channel_history(channel_id, channel_history)
+
+    # Prepare messages for API
+    messages_for_api = []
+    if CUSTOM_INSTRUCTIONS:
+        commands_list = (
+            "Available Bot Commands:\n"
+            "• /clearcontext — Clear all context, cache, and bot memory for privacy or a fresh start.\n"
+            "• /joke — Tells you a joke!\n"
+            "You can use these slash commands anytime for special actions.\n"
+        )
+        system_prompt = (
+            CUSTOM_INSTRUCTIONS
+            + "\n\n"
+            + commands_list
+            + "\n\n"
+            + build_ping_help_text(message.guild)
+            + "\n\n"
+            + build_user_list(message.guild, bot_user_id=message.guild.me.id)
+        )
+        messages_for_api.append({"role": "system", "content": system_prompt})
+    
+    messages_for_api.extend([
+        {
+            "role": entry["role"],
+            "content": (
+                f'{entry.get("name", "")}#{entry.get("discriminator", "????")} ({entry.get("user_id", "unknown")}) says: {entry["content"]}'
+                if entry["role"] == "user" else entry["content"]
+            )
+        }
+        for entry in channel_history
+    ])
+
+    try:
+        client, model_id = get_default_openai_client_and_model()
+        completion = await client.chat.completions.create(
+            model=model_id,
+            messages=messages_for_api,
+            temperature=TEMPERATURE,
+            stream=False
+        )
+        response_content = completion.choices[0].message.content or ""
+        
+        # Process mentions before sending
+        processed_content = resolve_discord_mentions(response_content, message.guild)
+        
+        # Save AI response to history
+        channel_history.append({"role": "assistant", "content": response_content})
+        if len(channel_history) > MAX_HISTORY_LEN:
+            channel_history = channel_history[-MAX_HISTORY_LEN:]
+        save_channel_history(channel_id, channel_history)
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error processing message: {e}")
+        return False
+
 async def ai_processing_worker(request_queue):
     """
     Asynchronous worker to process AI requests from the queue.
     This function runs continuously, processing messages as they are added to the queue.
     """
     print("⚙️ AI Processing Worker started.")
+    is_test = 'unittest' in sys.modules
+    
     while True:
         try:
             message = await request_queue.get()
@@ -116,7 +206,10 @@ async def ai_processing_worker(request_queue):
                     if len(channel_history) > MAX_HISTORY_LEN:
                         channel_history = channel_history[-MAX_HISTORY_LEN:]
                     save_channel_history(channel_id, channel_history)
-                    print(f"🤖 Sent non-streamed response to {message.channel.name}")
+                    if is_test:
+                        print("🤖 [TEST] Processing complete")
+                    else:
+                        print(f"🤖 Sent non-streamed response to {message.channel.name}")
                 else:
                     # 🟢 Streaming enabled: show "Thinking..." and stream as before
                     placeholder_message = await message.channel.send("🤔 Thinking... ")

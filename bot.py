@@ -149,6 +149,15 @@ async def on_message(message: discord.Message):
     if not should_respond:
         return
 
+    # Check channel slowmode
+    slowmode_delay = getattr(message.channel, 'slowmode_delay', 0)
+    if slowmode_delay > 0:
+        print(f"⏳ Slowmode active ({slowmode_delay}s) in {message.channel.name}")
+        await message.channel.send(
+            f"⏳ Please wait {slowmode_delay} seconds between messages (slowmode active)"
+        )
+        return
+
     # Convert mentions to username#discriminator for AI input if enabled
     processed_content = (
         replace_mentions_with_username_discriminator(message.content, message.guild)
