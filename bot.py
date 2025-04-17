@@ -64,31 +64,36 @@ async def on_ready():
             "Generate a friendly, energetic message to announce you are back online and ready to chat. "
             "Be creative and welcoming!"
         )
-        ai_content = "🤖 Beep boop! I'm online and ready for action!" # Fallback
+        # Fun rotating fallback messages
+        fallbacks = [
+            "🤖 Beep boop! Systems nominal and ready for your commands!",
+            "✨ Back in action! What can I help you with today?",
+            "🚀 Online and operational! Let's chat!",
+            "👋 Hello world! Ready to assist!",
+            "💡 Lights on! Ask me anything!"
+        ]
+        import random
+        ai_content = random.choice(fallbacks) # Fallback
         try:
+            client, model_id = get_default_openai_client_and_model()
             try:
-                client, model_id = get_default_openai_client_and_model()
-                stream = await client.chat.completions.create(
+                response = await client.chat.completions.create(
                     model=model_id,
                     messages=[
                         {"role": "system", "content": ai_announce_prompt},
                         {"role": "user", "content": "Announce that the AI is back online."}
                     ],
-                    temperature=0.8,
-                    stream=True
+                    temperature=0.8
                 )
-                final = ""
-                async for chunk in stream:
-                    delta = chunk.choices[0].delta.content
-                    if delta:
-                        final += delta
-                if final.strip():
-                    ai_content = final.strip()
+                if response.choices and len(response.choices) > 0:
+                    ai_content = response.choices[0].message.content or ai_content
             except Exception as e:
-                print("⚠️ Error generating AI online message: {e}")
+                print(f"⚠️ Error generating AI online message: {str(e)}")
                 print("⚠️ AI client not available, using fallback online message.")
+                if hasattr(e, 'response'):
+                    print(f"⚠️ API Response: {e.response.text if e.response else 'None'}")
         except Exception as e:
-            print(f"⚠️ Error generating AI online message: {e}")
+            print(f"⚠️ Error initializing AI client: {e}")
 
         # Try to send the message to the first allowed channel
         try:

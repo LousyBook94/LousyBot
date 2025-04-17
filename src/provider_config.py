@@ -103,8 +103,12 @@ def get_default_openai_client_and_model():
         raise ConfigParseError("No providers or models configured.")
     provider = providers[0]
     model = models[0]
+    # Handle keyless providers (when apiKey is blank/empty)
+    api_key = provider.get("apikey", "").strip()
+    requires_key = bool(api_key)  # Providers need key only if apiKey is non-empty
+    
     client = openai.AsyncOpenAI(
-        api_key=provider["apikey"],
+        api_key=api_key if requires_key else "not-required",
         base_url=provider["baseurl"],
     )
     return client, model["model-id"]
