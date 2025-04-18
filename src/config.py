@@ -15,6 +15,7 @@ DISCORD_GUILD_NAMES_STR = os.getenv('DISCORD_GUILD', '')
 # REQUESTY_API_KEY and related logic removed; handled via provider config now
 TEMPERATURE = float(os.getenv('TEMPERATURE', 0.7))
 DISABLE_STREAM = os.getenv('DISABLE_STREAM', 'false').lower() in ['1', 'true', 'yes']
+STREAM_CHAR = int(os.getenv('STREAM_CHAR', '50'))
 DEBUG = os.getenv('DEBUG', 'false').lower() in ['1', 'true', 'yes']
 
 WELCOME_MSG = os.getenv('WELCOME_MSG', 'true').lower() in ['1', 'true', 'yes']

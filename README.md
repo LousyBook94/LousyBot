@@ -46,6 +46,19 @@ LousyBot features multi-provider AI support, robust config management, and a fri
    python bot.py
    ```
 
+5 **(Optional) Modify admin list**
+   - Copy `admin.txt.example` to `admin.txt` and add your admin user IDs and remove mine probably.
+   - Restart the bot.
+
+
+## Troubleshooting
+
+1. Not seeing slash commands?
+   - Make sure your id is in the admin list and type in '!sync' to any of the allowed channels
+
+2. Bot not running?
+   - Make sure to run 'pip install -r requirements.txt' first
+
 ---
 
 ## 📁 Project Structure

@@ -1,4 +1,4 @@
-# Pollination model config for GPT 4.1 mini
+# Pollination model config for Gemini 2.5 Flash
 provider=Pollination
-model-id=openai-large
+model-id=gemini
 ====

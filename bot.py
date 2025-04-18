@@ -15,6 +15,21 @@ from src.ai_processing import ai_processing_worker
 from src.commands import register_commands
 from src.provider_config import get_default_openai_client_and_model
 
+# Load admin IDs
+ADMIN_IDS = []
+try:
+    # Assuming admin.txt is in the same directory as bot.py
+    with open('admin.txt') as f:
+        ADMIN_IDS = [int(line.strip()) for line in f if line.strip()]
+    print(f"✅ Loaded {len(ADMIN_IDS)} admin IDs")
+    print("ℹ️ Type '!sync' with your userid in admin.txt to sync commands")
+except FileNotFoundError:
+    print("⚠️ admin.txt not found, no admin IDs loaded.")
+    ADMIN_IDS = []
+except Exception as e:
+    print(f"❌ Failed to load admin IDs: {e}")
+    ADMIN_IDS = []
+
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -37,22 +52,11 @@ async def on_ready():
         print(f"👂 Allowed guilds (Name): {ALLOWED_GUILD_NAMES if ALLOWED_GUILD_NAMES else 'None specified'}")
     print('------')
 
-    # Sync commands
-    if USE_GUILD_ID and ALLOWED_GUILD_IDS:
-        for gid in ALLOWED_GUILD_IDS:
-            print(f"🔄 Syncing slash commands to guild {gid}...")
-            result = await tree.sync(guild=discord.Object(id=gid))
-            print(f"    Synced commands: {', '.join(cmd.name for cmd in result)}")
-        print(f"🌐 Slash commands synced to {len(ALLOWED_GUILD_IDS)} guild(s)!")
-    else:
-        print("🔄 Syncing global slash commands (can take up to 1 hour to appear)...")
-        result = await tree.sync()
-        print(f"    Synced commands: {', '.join(cmd.name for cmd in result)}")
-        print("🌐 Slash commands synced globally!")
-    # Register commands from src/commands.py
+    # Register commands from src/commands.py FIRST!
     register_commands(tree, bot)
-
-    # (Ping help text is now dynamically injected per-message in ai_processing.py)
+    print("✅ Commands registered locally.")
+    # Syncing is now handled by the !sync command below.
+    # You might want to run !sync once after starting the bot.
 
     # Start AI worker task
     asyncio.create_task(ai_processing_worker(request_queue))
@@ -135,6 +139,41 @@ async def on_message(message: discord.Message):
     if message.author == bot.user or message.webhook_id:
         return
 
+    # Handle !sync command
+    if message.content.startswith('!sync'):
+        if message.author.id not in ADMIN_IDS:
+            await message.channel.send(":no_entry_sign: You don't have permission to sync commands!")
+            return
+
+        sync_target = message.content[len('!sync'):].strip()
+        synced_commands = []
+        try:
+            await message.channel.send(":arrows_counterclockwise: Syncing commands...")
+            if sync_target == "guild" and USE_GUILD_ID and ALLOWED_GUILD_IDS:
+                for gid in ALLOWED_GUILD_IDS:
+                    synced_commands = await tree.sync(guild=discord.Object(id=gid))
+                await message.channel.send(f":white_check_mark: Synced {len(synced_commands)} commands to {len(ALLOWED_GUILD_IDS)} specified guild(s)!")
+            elif sync_target == "clear_guild" and USE_GUILD_ID and ALLOWED_GUILD_IDS:
+                 for gid in ALLOWED_GUILD_IDS:
+                    tree.clear_commands(guild=discord.Object(id=gid))
+                    await tree.sync(guild=discord.Object(id=gid))
+                 await message.channel.send(f":wastebasket: Cleared commands from {len(ALLOWED_GUILD_IDS)} specified guild(s)!")
+            elif sync_target == "copy_guild" and USE_GUILD_ID and ALLOWED_GUILD_IDS:
+                for gid in ALLOWED_GUILD_IDS:
+                    guild_obj = discord.Object(id=gid)
+                    tree.copy_global_to(guild=guild_obj)
+                    synced_commands = await tree.sync(guild=guild_obj)
+                await message.channel.send(f":clipboard: Copied global commands and synced {len(synced_commands)} commands to {len(ALLOWED_GUILD_IDS)} specified guild(s)!")
+            else: # Default to global sync
+                synced_commands = await tree.sync()
+                await message.channel.send(f":white_check_mark: Synced {len(synced_commands)} commands globally!")
+            print(f"    Synced commands via !sync: {', '.join(cmd.name for cmd in synced_commands)}")
+        except Exception as e:
+            await message.channel.send(f":x: Sync failed: {e}")
+            print(f"❌ Error during !sync: {e}")
+        return # Don't process !sync as a regular message
+
+    # --- Rest of on_message logic ---
     should_respond = False
     if message.channel.id in ALLOWED_CHANNELS:
         should_respond = True

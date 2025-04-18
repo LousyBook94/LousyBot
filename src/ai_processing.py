@@ -2,7 +2,7 @@ import time
 import asyncio
 import discord
 import sys
-from .config import TEMPERATURE, DISABLE_STREAM, MAX_HISTORY_LEN, CUSTOM_INSTRUCTIONS, DEBUG
+from .config import TEMPERATURE, DISABLE_STREAM, MAX_HISTORY_LEN, CUSTOM_INSTRUCTIONS, DEBUG, STREAM_CHAR
 from src.provider_config import get_default_openai_client_and_model
 from .cache_utils import load_channel_history, save_channel_history
 from .mention_utils import resolve_discord_mentions, build_ping_help_text
@@ -183,7 +183,10 @@ async def ai_processing_worker(request_queue):
                         temperature=TEMPERATURE,
                         stream=False
                     )
-                    response_content = completion.choices[0].message.content or ""
+                    if not completion.choices or not completion.choices[0].message:
+                        response_content = "😅 I couldn't come up with a response for that."
+                    else:
+                        response_content = completion.choices[0].message.content or "😅 I couldn't come up with a response for that."
                     if DEBUG:
                         print(f"Response from AI : {response_content!r}")
                     # Process mentions before sending
@@ -211,9 +214,8 @@ async def ai_processing_worker(request_queue):
                     else:
                         print(f"🤖 Sent non-streamed response to {message.channel.name}")
                 else:
-                    # 🟢 Streaming enabled: show "Thinking..." and stream as before
-                    placeholder_message = await message.channel.send("🤔 Thinking... ")
-                    # Use provider/model helper
+                    # 🟢 Streaming enabled: show "Thinking..." and stream incrementally
+                    placeholder_message = await message.channel.send("🤔 Thinking...")
                     client, model_id = get_default_openai_client_and_model()
                     stream = await client.chat.completions.create(
                         model=model_id,
@@ -221,38 +223,42 @@ async def ai_processing_worker(request_queue):
                         temperature=TEMPERATURE,
                         stream=True
                     )
+                    
                     accumulated_content = ""
-                    chunk_to_send = ""
-                    all_chunks = []
+                    processed = "" # Initialize processed
+                    last_update_time = time.time()
+                    update_interval = 0.5  # Update at least every 0.5 seconds
                     MAX_CHUNK = 1800
 
                     async for chunk in stream:
+                        if not chunk.choices or not chunk.choices[0].delta:
+                            continue
+                            
                         delta_content = chunk.choices[0].delta.content
                         if delta_content:
                             accumulated_content += delta_content
-                            chunk_to_send += delta_content
-                            # If we've exceeded MAX_CHUNK, wait for a newline to split
-                            while len(chunk_to_send) > MAX_CHUNK:
-                                # Find the last newline before MAX_CHUNK
-                                split_idx = chunk_to_send.rfind('\n', 0, MAX_CHUNK)
-                                if split_idx == -1:
-                                    split_idx = MAX_CHUNK
-                                send_part = chunk_to_send[:split_idx]
-                                # Process mentions before sending
-                                processed = resolve_discord_mentions(send_part, message.guild)
-                                if placeholder_message:
+                            
+                            # Update more frequently - either when we have enough content or time has passed
+                            current_time = time.time()
+                            if (STREAM_CHAR == 0 or  # Update on every character if 0
+                                len(accumulated_content) - len(processed or "") >= STREAM_CHAR or
+                                current_time - last_update_time >= update_interval):
+                                
+                                processed = resolve_discord_mentions(accumulated_content, message.guild)
+                                try:
                                     await placeholder_message.edit(content=processed)
-                                    placeholder_message = None
-                                else:
+                                    last_update_time = current_time
+                                except discord.HTTPException:
+                                    # If edit fails, send as new message and create new placeholder
                                     await message.channel.send(processed)
-                                chunk_to_send = chunk_to_send[split_idx:]
-                    # Send any leftover text
-                    if chunk_to_send.strip():
-                        processed = resolve_discord_mentions(chunk_to_send, message.guild)
-                        if placeholder_message:
-                            await placeholder_message.edit(content=processed)
-                        else:
-                            await message.channel.send(processed)
+                                    placeholder_message = await message.channel.send("...")
+                    
+                    # Final update with complete content
+                    if accumulated_content.strip():
+                        processed = resolve_discord_mentions(accumulated_content, message.guild)
+                        await placeholder_message.edit(content=processed)
+                    else:
+                        await placeholder_message.edit(content="😅 I couldn't come up with a response for that.")
 
                     # Save to history
                     if accumulated_content:
