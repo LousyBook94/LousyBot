@@ -11,9 +11,9 @@ from src.config import (
 )
 from src.cache_utils import load_channel_history, save_channel_history
 from src.mention_utils import resolve_mentions, replace_mentions_with_username_discriminator
-from src.ai_processing import ai_processing_worker
+from src.llm_client import llm_worker
 from src.commands import register_commands
-from src.provider_config import get_default_openai_client_and_model
+from src.provider_config import get_llm_client
 
 # Load admin IDs
 ADMIN_IDS = []
@@ -59,7 +59,7 @@ async def on_ready():
     # You might want to run !sync once after starting the bot.
 
     # Start AI worker task
-    asyncio.create_task(ai_processing_worker(request_queue))
+    asyncio.create_task(llm_worker(request_queue))
 
     # Generate and send "back online" message (if enabled)
     if WELCOME_MSG:
@@ -79,7 +79,7 @@ async def on_ready():
         import random
         ai_content = random.choice(fallbacks) # Fallback
         try:
-            client, model_id = get_default_openai_client_and_model()
+            client, model_id = get_llm_client()
             try:
                 response = await client.chat.completions.create(
                     model=model_id,

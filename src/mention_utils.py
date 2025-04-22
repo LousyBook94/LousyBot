@@ -5,7 +5,7 @@ from functools import partial
 
 import os
 
-def parse_admin_file(file_path="admin.txt"):
+def load_admins(file_path="admin.txt"):
     """
     Parses admin.txt, validates each line, and returns (valid_admins, error_lines, admin_list_str).
     - valid_admins: set of valid admin entries (user#discriminator or user_id)
@@ -35,9 +35,9 @@ def parse_admin_file(file_path="admin.txt"):
         admin_list_str += "\n❗ Invalid lines in admin.txt (ignored):\n" + "\n".join(f"  - {err}" for err in error_lines)
     return valid_admins, error_lines, admin_list_str
 
-_, _, ADMIN_LIST_FOR_INSTRUCTIONS = parse_admin_file()
+_, _, ADMIN_LIST_FOR_INSTRUCTIONS = load_admins()
 
-def build_ping_help_text(guild=None):
+def get_ping_help(guild=None):
     """
     Returns the full instructions string for the model, including admin list and available roles.
     """
@@ -114,7 +114,7 @@ def _mention_replacer(match: re.Match, guild: discord.Guild | None) -> str:
     # 5. Fallback: Not a recognized/resolvable pattern
     return original_mention
 
-def resolve_discord_mentions(text: str, guild: discord.Guild | None) -> str:
+def replace_mentions(text: str, guild: discord.Guild | None) -> str:
     """
     Scans input text for specific mention formats (<@user_id>,
     <@username#discriminator>, <@everyone>, <@roleName>) and resolves

@@ -76,7 +76,7 @@ async def test_joke_command():
     assert joke_cmd is not None
     
     # Test with successful joke response
-    with patch('src.commands.get_default_openai_client_and_model') as mock_get_client:
+    with patch('src.commands.get_llm_client') as mock_get_client:
         mock_client = AsyncMock()
         mock_client.chat.completions.create.return_value = MagicMock(
             choices=[MagicMock(message=MagicMock(content="Why did the chicken cross the road?"))]

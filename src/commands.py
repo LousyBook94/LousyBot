@@ -1,7 +1,7 @@
 import discord
 from discord import app_commands
 from .config import CACHE_DIR, ALLOWED_CHANNELS, ALLOWED_GUILD_IDS, ALLOWED_GUILD_NAMES, USE_GUILD_ID
-from src.provider_config import get_default_openai_client_and_model
+from src.provider_config import get_llm_client
 from .cache_utils import load_channel_history, save_channel_history
 from .utils import get_error, send_error
 
@@ -51,7 +51,7 @@ def register_commands(tree, bot):
         prompt = "Tell me a joke"
         try:
             # Use provider/model helper
-            client, model_id = get_default_openai_client_and_model()
+            client, model_id = get_llm_client()
             completion = await client.chat.completions.create(
                 model=model_id,
                 messages=[{"role": "user", "content": prompt}],

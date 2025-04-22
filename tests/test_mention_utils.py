@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 import discord
-from src.mention_utils import resolve_discord_mentions, parse_admin_file
+from src.mention_utils import replace_mentions, load_admins
 import pytest
 
 @pytest.fixture
@@ -35,27 +35,27 @@ def mock_guild():
 
 def test_resolve_user_id_mention(mock_guild):
     text = "Hello <@123456789012345678>!"
-    result = resolve_discord_mentions(text, mock_guild)
+    result = replace_mentions(text, mock_guild)
     assert result == "Hello <@123456789012345678>!"
 
 def test_resolve_username_discriminator_mention(mock_guild):
     text = "Hello <@TestUser#1234>!"
-    result = resolve_discord_mentions(text, mock_guild)
+    result = replace_mentions(text, mock_guild)
     assert result == "Hello <@123456789012345678>!"
 
 def test_resolve_role_mention(mock_guild):
     text = "Hello <@Admin>!"
-    result = resolve_discord_mentions(text, mock_guild)
+    result = replace_mentions(text, mock_guild)
     assert result == "Hello @Admin!"
 
 def test_resolve_everyone_mention(mock_guild):
     text = "Hello <@everyone>!"
-    result = resolve_discord_mentions(text, mock_guild)
+    result = replace_mentions(text, mock_guild)
     assert result == "Hello @everyone!"
 
 def test_invalid_mention_format(mock_guild):
     text = "Hello <@InvalidUser>!"
-    result = resolve_discord_mentions(text, mock_guild)
+    result = replace_mentions(text, mock_guild)
     assert result == "Hello <@InvalidUser>!"
 
 def test_parse_admin_file():
@@ -67,7 +67,7 @@ def test_parse_admin_file():
         tmp.write("InvalidLine\n")
         tmp_path = tmp.name
     
-    valid_admins, errors, _ = parse_admin_file(tmp_path)
+    valid_admins, errors, _ = load_admins(tmp_path)
     assert len(valid_admins) == 2
     assert len(errors) == 1
     assert "TestUser#1234" in valid_admins

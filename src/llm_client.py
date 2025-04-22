@@ -3,10 +3,10 @@ import asyncio
 import discord
 import sys
 from .config import TEMPERATURE, DISABLE_STREAM, MAX_HISTORY_LEN, CUSTOM_INSTRUCTIONS, DEBUG, STREAM_CHAR
-from src.provider_config import get_default_openai_client_and_model
+from src.provider_config import get_llm_client
 from .cache_utils import load_channel_history, save_channel_history
-from .mention_utils import resolve_discord_mentions, build_ping_help_text
-def build_user_list(guild, bot_user_id=None):
+from .mention_utils import replace_mentions, get_ping_help
+def get_users(guild, bot_user_id=None):
     """
     Build a user list string for the guild.
     Format:
@@ -23,7 +23,7 @@ def build_user_list(guild, bot_user_id=None):
         user_lines.append(line)
     return "Server User List:\n" + "\n".join(sorted(set(user_lines)))
 
-async def process_message(message):
+async def handle_message(message):
     """
     Process a single message through the AI pipeline.
     Returns True if processed successfully, False otherwise.
@@ -68,9 +68,9 @@ async def process_message(message):
             + "\n\n"
             + commands_list
             + "\n\n"
-            + build_ping_help_text(message.guild)
+            + get_ping_help(message.guild)
             + "\n\n"
-            + build_user_list(message.guild, bot_user_id=message.guild.me.id)
+            + get_users(message.guild, bot_user_id=message.guild.me.id)
         )
         messages_for_api.append({"role": "system", "content": system_prompt})
     
@@ -86,7 +86,7 @@ async def process_message(message):
     ])
 
     try:
-        client, model_id = get_default_openai_client_and_model()
+        client, model_id = get_llm_client()
         completion = await client.chat.completions.create(
             model=model_id,
             messages=messages_for_api,
@@ -96,7 +96,7 @@ async def process_message(message):
         response_content = completion.choices[0].message.content or ""
         
         # Process mentions before sending
-        processed_content = resolve_discord_mentions(response_content, message.guild)
+        processed_content = replace_mentions(response_content, message.guild)
         
         # Save AI response to history
         channel_history.append({"role": "assistant", "content": response_content})
@@ -110,7 +110,7 @@ async def process_message(message):
         print(f"❌ Error processing message: {e}")
         return False
 
-async def ai_processing_worker(request_queue):
+async def llm_worker(request_queue):
     """
     Asynchronous worker to process AI requests from the queue.
     This function runs continuously, processing messages as they are added to the queue.
@@ -144,7 +144,7 @@ async def ai_processing_worker(request_queue):
 
                 # Prepare messages for API
                 messages_for_api = []
-                from .mention_utils import build_ping_help_text
+                from .mention_utils import get_ping_help
                 if CUSTOM_INSTRUCTIONS:
                     commands_list = (
                         "Available Bot Commands:\n"
@@ -157,9 +157,9 @@ async def ai_processing_worker(request_queue):
                         + "\n\n"
                         + commands_list
                         + "\n\n"
-                        + build_ping_help_text(message.guild)
+                        + get_ping_help(message.guild)
                         + "\n\n"
-                        + build_user_list(message.guild, bot_user_id=message.guild.me.id)
+                        + get_users(message.guild, bot_user_id=message.guild.me.id)
                     )
                     messages_for_api.append({"role": "system", "content": system_prompt})
                 messages_for_api.extend([
@@ -176,7 +176,7 @@ async def ai_processing_worker(request_queue):
                 if DISABLE_STREAM:
                     # 🚫 Streaming disabled: just get a single, final AI response and send it
                     # Use provider/model helper
-                    client, model_id = get_default_openai_client_and_model()
+                    client, model_id = get_llm_client()
                     completion = await client.chat.completions.create(
                         model=model_id,
                         messages=messages_for_api,
@@ -190,7 +190,7 @@ async def ai_processing_worker(request_queue):
                     if DEBUG:
                         print(f"Response from AI : {response_content!r}")
                     # Process mentions before sending
-                    processed_content = resolve_discord_mentions(response_content, message.guild)
+                    processed_content = replace_mentions(response_content, message.guild)
                     if DEBUG:
                         print(f"Modified Response from AI : {processed_content!r}")
                     # Split into <2000 char chunks for Discord
@@ -216,7 +216,7 @@ async def ai_processing_worker(request_queue):
                 else:
                     # 🟢 Streaming enabled: show "Thinking..." and stream incrementally
                     placeholder_message = await message.channel.send("🤔 Thinking...")
-                    client, model_id = get_default_openai_client_and_model()
+                    client, model_id = get_llm_client()
                     stream = await client.chat.completions.create(
                         model=model_id,
                         messages=messages_for_api,
@@ -244,7 +244,7 @@ async def ai_processing_worker(request_queue):
                                 len(accumulated_content) - len(processed or "") >= STREAM_CHAR or
                                 current_time - last_update_time >= update_interval):
                                 
-                                processed = resolve_discord_mentions(accumulated_content, message.guild)
+                                processed = replace_mentions(accumulated_content, message.guild)
                                 try:
                                     await placeholder_message.edit(content=processed)
                                     last_update_time = current_time
@@ -255,7 +255,7 @@ async def ai_processing_worker(request_queue):
                     
                     # Final update with complete content
                     if accumulated_content.strip():
-                        processed = resolve_discord_mentions(accumulated_content, message.guild)
+                        processed = replace_mentions(accumulated_content, message.guild)
                         await placeholder_message.edit(content=processed)
                     else:
                         await placeholder_message.edit(content="😅 I couldn't come up with a response for that.")

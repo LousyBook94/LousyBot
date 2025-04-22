@@ -11,10 +11,13 @@ async def test_slowmode_detection():
     message.channel.send = AsyncMock()
     message.author.bot = False
     message.webhook_id = None
-    message.guild = None
+    message.guild = MagicMock()
+    message.content = "test message"  # Not a command
+    message.author.id = 12345  # Not an admin
     
-    # Set ALLOWED_CHANNELS to include this channel
-    with patch('bot.ALLOWED_CHANNELS', [message.channel.id]):
+    # Set ALLOWED_CHANNELS and disable admin checks
+    with patch('bot.ALLOWED_CHANNELS', [message.channel.id]), \
+         patch('bot.ADMIN_IDS', []):
         # Call on_message handler
         await bot.on_message(message)
         

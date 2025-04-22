@@ -2,7 +2,7 @@ import asyncio
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 import discord
-from src.ai_processing import build_user_list
+from src.llm_client import get_users
 import pytest
 
 @pytest.mark.asyncio
@@ -22,18 +22,18 @@ async def test_build_user_list():
     guild.members = [user1, user2]
     
     # Test without bot user
-    result = build_user_list(guild)
+    result = get_users(guild)
     assert "TestUser#1234 | 123456789012345678" in result
     assert "AnotherUser#5678 | 987654321098765432" in result
     
     # Test with bot user
-    result = build_user_list(guild, bot_user_id=123456789012345678)
+    result = get_users(guild, bot_user_id=123456789012345678)
     assert "TestUser#1234 | 123456789012345678 | (Your Account)" in result
 
 @pytest.mark.asyncio
 async def test_message_processing():
     """Test the core message processing logic directly"""
-    from src.ai_processing import process_message
+    from src.llm_client import handle_message
     
     # Setup test message with all required attributes
     message = AsyncMock(spec=discord.Message)
@@ -51,9 +51,9 @@ async def test_message_processing():
 
     # Mock dependencies with proper imports
     with patch('bot.ALLOWED_CHANNELS', [message.channel.id]), \
-         patch('src.ai_processing.load_channel_history', return_value=[]) as mock_load, \
-         patch('src.ai_processing.save_channel_history') as mock_save, \
-         patch('src.provider_config.get_default_openai_client_and_model') as mock_get_client:
+         patch('src.llm_client.load_channel_history', return_value=[]) as mock_load, \
+         patch('src.llm_client.save_channel_history') as mock_save, \
+         patch('src.provider_config.get_llm_client') as mock_get_client:
         
         # Setup mock AI response
         mock_client = AsyncMock()
@@ -62,13 +62,15 @@ async def test_message_processing():
         )
         mock_get_client.return_value = (mock_client, "gpt-4")
 
-        # Call process_message directly
-        result = await process_message(message)
+        # Mock resolve_mentions to return the input
+        with patch('src.mention_utils.replace_mentions', return_value="Test response"):
+            # Call handle_message directly
+            result = await handle_message(message)
         
         # Verify results
-        assert result is True
+        assert result is True, "Message processing should return True on success"
         mock_load.assert_called_once_with(str(message.channel.id))
-        assert mock_save.call_count == 2  # Once for user msg, once for AI response
+        assert mock_save.call_count == 2, "Should save both user message and AI response"
         
         # Verify history was loaded and saved
         mock_load.assert_called_once_with(str(message.channel.id))

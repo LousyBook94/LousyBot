@@ -91,7 +91,7 @@ def load_models(filepath="model/models.txt"):
     required = ["provider", "model-id"]
     return parse_entries(filepath, required, "model-id", "model")
 
-def get_default_openai_client_and_model():
+def get_llm_client():
     """
     Returns a tuple: (openai.AsyncOpenAI client, model_id) using the first provider/model entry.
     Raises ConfigParseError if not found.
