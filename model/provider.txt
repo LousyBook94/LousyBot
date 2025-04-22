@@ -1,5 +1,0 @@
-# Pollination AI provider config (Free for everyone - no API key needed)
-name=Pollination
-apiKey=
-baseUrl=https://text.pollinations.ai/openai
-====
