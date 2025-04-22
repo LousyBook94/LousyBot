@@ -1,9 +1,11 @@
 import discord
 import asyncio
+import random
 from discord import app_commands
 from asyncio import Queue
 import aiohttp
 import socket
+from src.llm_client import request_completion
 
 from src.config import (
     DISCORD_TOKEN, ALLOWED_CHANNELS, USE_GUILD_ID, ALLOWED_GUILD_IDS, ALLOWED_GUILD_NAMES,
@@ -63,41 +65,36 @@ async def on_ready():
 
     # Generate and send "back online" message (if enabled)
     if WELCOME_MSG:
-        ai_announce_prompt = (
-            "You are an AI assistant. "
-            "Generate a friendly, energetic message to announce you are back online and ready to chat. "
-            "Be creative and welcoming!"
-        )
+        messages = [
+            {
+                "role": "system",
+                "content": "You are an AI assistant. Generate a friendly, energetic message to announce you are back online and ready to chat. Be creative and welcoming!"
+            },
+            {
+                "role": "user",
+                "content": "Announce that the AI is back online."
+            }
+        ]
+
         # Fun rotating fallback messages
         fallbacks = [
             "🤖 Beep boop! Systems nominal and ready for your commands!",
-            "✨ Back in action! What can I help you with today?",
+            "✨ Back in action! What can I help you with?",
             "🚀 Online and operational! Let's chat!",
             "👋 Hello world! Ready to assist!",
             "💡 Lights on! Ask me anything!"
         ]
-        import random
+
         ai_content = random.choice(fallbacks) # Fallback
         try:
-            client, model_id = get_llm_client()
-            try:
-                response = await client.chat.completions.create(
-                    model=model_id,
-                    messages=[
-                        {"role": "system", "content": ai_announce_prompt},
-                        {"role": "user", "content": "Announce that the AI is back online."}
-                    ],
-                    temperature=0.8
-                )
-                if response.choices and len(response.choices) > 0:
-                    ai_content = response.choices[0].message.content or ai_content
-            except Exception as e:
-                print(f"⚠️ Error generating AI online message: {str(e)}")
-                print("⚠️ AI client not available, using fallback online message.")
-                if hasattr(e, 'response'):
-                    print(f"⚠️ API Response: {e.response.text if e.response else 'None'}")
+            response = await request_completion(
+                messages=messages,
+                temperature=0.8
+            )
+            if response:
+                ai_content = response
         except Exception as e:
-            print(f"⚠️ Error initializing AI client: {e}")
+            print(f"⚠️ Error generating online message: {e}")
 
         # Try to send the message to the first allowed channel
         try:
@@ -115,18 +112,22 @@ async def on_ready():
                         break
 
             if first_guild:
-                for ch in first_guild.text_channels:
-                    if ch.id in ALLOWED_CHANNELS:
-                        first_channel = ch
-                        break
-                # Fallback: pick the first available text channel in the guild if no specific allowed channel found
-                if not first_channel and first_guild.text_channels:
-                    first_channel = first_guild.text_channels[0]
-                    print(f"⚠️ No specific allowed channel found in guild {first_guild.name}, using first available: {first_channel.name}")
-
-            if first_channel:
-                await first_channel.send(ai_content)
+                sent_message = await first_channel.send(ai_content)
                 print(f"✅ Sent 'back online' message to {first_channel.name} in {first_guild.name}")
+
+                # Save the 'back online' message to channel history
+                try:
+                    history = load_channel_history(str(first_channel.id))
+                    history.append({
+                        "role": "assistant",
+                        "content": ai_content,
+                        "type": "back_online" # Add a type for clarity
+                    })
+                    save_channel_history(str(first_channel.id), history)
+                    print(f"✅ Saved 'back online' message to history for channel {first_channel.name}")
+                except Exception as hist_e:
+                    print(f"⚠️ Failed to save 'back online' message to history: {hist_e}")
+
             else:
                 print("⚠️ Could not find a suitable channel to send the 'back online' message.")
         except Exception as e:
@@ -204,6 +205,18 @@ async def on_message(message: discord.Message):
     )
     # Overwrite the message.content for AI processing
     message.content = processed_content
+
+    # Save message to channel history
+    try:
+        history = load_channel_history(str(message.channel.id))
+        history.append({
+            "role": "user",
+            "content": message.content,
+            "author": f"{message.author.name}#{message.author.discriminator}"
+        })
+        save_channel_history(str(message.channel.id), history)
+    except Exception as e:
+        print(f"⚠️ Failed to save message to history: {e}")
 
     print(f"📥 Queuing request from {message.author.name} in {message.channel.name}: '{message.content[:50]}...'")
     await request_queue.put(message)

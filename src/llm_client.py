@@ -2,6 +2,37 @@ import time
 import asyncio
 import discord
 import sys
+from typing import Optional, List, Dict, Union
+
+async def request_completion(
+    messages: List[Dict[str, str]],
+    temperature: float = 0.7,
+    stream: bool = False
+) -> Union[str, None]:
+    """Universal function to request completions from the LLM.
+    
+    Args:
+        messages: List of message dicts in OpenAI format
+        temperature: Creativity level (0-2)
+        stream: Whether to stream the response
+        
+    Returns:
+        The completion text or None if failed
+    """
+    try:
+        client, model_id = get_llm_client()
+        completion = await client.chat.completions.create(
+            model=model_id,
+            messages=messages,
+            temperature=temperature,
+            stream=stream
+        )
+        if stream:
+            return None  # Streaming handled separately
+        return completion.choices[0].message.content
+    except Exception as e:
+        print(f"❌ Error in request_completion: {e}")
+        return None
 from .config import TEMPERATURE, DISABLE_STREAM, MAX_HISTORY_LEN, CUSTOM_INSTRUCTIONS, DEBUG, STREAM_CHAR
 from src.provider_config import get_llm_client
 from .cache_utils import load_channel_history, save_channel_history

@@ -76,12 +76,7 @@ async def test_joke_command():
     assert joke_cmd is not None
     
     # Test with successful joke response
-    with patch('src.commands.get_llm_client') as mock_get_client:
-        mock_client = AsyncMock()
-        mock_client.chat.completions.create.return_value = MagicMock(
-            choices=[MagicMock(message=MagicMock(content="Why did the chicken cross the road?"))]
-        )
-        mock_get_client.return_value = (mock_client, "gpt-4")
+    with patch('src.commands.request_completion', return_value="Why did the chicken cross the road?") as mock_request:
         
         interaction = AsyncMock()
         await joke_cmd['func'](interaction)
