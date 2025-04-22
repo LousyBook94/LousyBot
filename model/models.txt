@@ -1,4 +1,8 @@
-# Pollination model config for Gemini 2.5 Flash
-provider=Pollination
-model-id=gemini
-====
+# config for Gemini 2.0 Flash Thinking through requesty
+provider=Requesty
+model-id=google/gemini-2.0-flash-thinking-exp-01-21
+
+# MUST CONTAIN ONLY ONE VALID model
+# Pollinations GPT 4.1 mini config
+# provider=Pollinations
+# model-id=openai-large

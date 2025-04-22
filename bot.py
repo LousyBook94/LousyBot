@@ -9,7 +9,7 @@ from src.llm_client import request_completion
 
 from src.config import (
     DISCORD_TOKEN, ALLOWED_CHANNELS, USE_GUILD_ID, ALLOWED_GUILD_IDS, ALLOWED_GUILD_NAMES,
-    CUSTOM_INSTRUCTIONS, MAX_HISTORY_LEN, WELCOME_MSG
+    CUSTOM_INSTRUCTIONS, MAX_HISTORY_LEN, WELCOME_MSG, DYNAMIC
 )
 from src.cache_utils import load_channel_history, save_channel_history
 from src.mention_utils import resolve_mentions, replace_mentions_with_username_discriminator
@@ -112,6 +112,14 @@ async def on_ready():
                         break
 
             if first_guild:
+                # Find the first allowed channel within the selected guild
+                for channel_id in ALLOWED_CHANNELS:
+                    channel = first_guild.get_channel(channel_id)
+                    if channel and isinstance(channel, discord.TextChannel):
+                        first_channel = channel
+                        break
+
+            if first_channel: # Check if a suitable channel was found
                 sent_message = await first_channel.send(ai_content)
                 print(f"✅ Sent 'back online' message to {first_channel.name} in {first_guild.name}")
 
@@ -188,6 +196,8 @@ async def on_message(message: discord.Message):
 
     if not should_respond:
         return
+
+    # Dynamic response logic will be handled after AI response
 
     # Check channel slowmode
     slowmode_delay = getattr(message.channel, 'slowmode_delay', 0)

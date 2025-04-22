@@ -18,6 +18,8 @@ DISABLE_STREAM = os.getenv('DISABLE_STREAM', 'false').lower() in ['1', 'true', '
 STREAM_CHAR = int(os.getenv('STREAM_CHAR', '50'))
 DEBUG = os.getenv('DEBUG', 'false').lower() in ['1', 'true', 'yes']
 
+DYNAMIC = os.getenv('DYNAMIC', 'true').lower() in ['1', 'true', 'yes']
+
 WELCOME_MSG = os.getenv('WELCOME_MSG', 'true').lower() in ['1', 'true', 'yes']
 
 # Parse and set up allowed channels and guilds

@@ -8,3 +8,10 @@ model-id=gpt-4
 provider=SomeOtherAI
 model-id=alpha-v2
 ====
+
+
+# Recommended free but little slow provider (Pollinations.ai)
+provider=Pollinations
+model-id=openai-large
+
+# REMOVE ALL COMMENTS FROM THIS FILE

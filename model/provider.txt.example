@@ -10,3 +10,10 @@ name=SomeOtherAI
 apiKey=abcdef123456
 baseUrl=https://someother.ai/api
 ====
+
+# Pollination provider (free, no api)
+name=Pollination
+apiKey=
+baseUrl=https://text.pollinations.ai/openai
+
+# REMOVE ALL COMMENTS
