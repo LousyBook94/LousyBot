@@ -328,10 +328,10 @@ async def llm_worker(request_queue):
                                 len(accumulated_content) - len(processed or "") >= STREAM_CHAR or
                                 current_time - last_update_time >= update_interval):
 
-                                processed = replace_mentions(accumulated_content, message.guild)
+                                processed = replace_mentions(accumulated_content, message.guild).replace(":white_circle:", "")
                                 try:
                                     if placeholder_message: # Edit existing "Thinking..." message (only if not DYNAMIC)
-                                        await placeholder_message.edit(content=processed if processed else "...")
+                                        await placeholder_message.edit(content=processed + ":white_circle:" if processed else "...")
                                     elif not placeholder_message and processed: # DYNAMIC=true, no marker, first time sending
                                         placeholder_message = await message.channel.send(processed)
                                     elif placeholder_message and processed: # DYNAMIC=true, subsequent edits to the message we sent
