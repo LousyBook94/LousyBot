@@ -299,6 +299,8 @@ async def llm_worker(request_queue):
 
                         delta_content = chunk.choices[0].delta.content
                         if delta_content:
+                            if DEBUG:
+                                print(f"🔵 Stream chunk: {delta_content!r}")
                             accumulated_content += delta_content
 
                             # --- Dynamic Response Check (Streaming - First Chunk Only) ---
@@ -325,8 +327,7 @@ async def llm_worker(request_queue):
                             # Update message content
                             current_time = time.time()
                             if (STREAM_CHAR == 0 or
-                                len(accumulated_content) - len(processed or "") >= STREAM_CHAR or
-                                current_time - last_update_time >= update_interval):
+                                len(accumulated_content) - len(processed or "") >= STREAM_CHAR):
 
                                 processed = replace_mentions(accumulated_content, message.guild).replace(":white_circle:", "")
                                 try:
@@ -364,7 +365,11 @@ async def llm_worker(request_queue):
                         pass # Explicitly do nothing
                     elif accumulated_content.strip():
                         # Stream finished normally, ensure final content is sent/edited
+                        if DEBUG:
+                            print(f"🟢 Raw response: {accumulated_content!r}")
                         processed = replace_mentions(accumulated_content, message.guild)
+                        if DEBUG:
+                            print(f"🟣 Processed response: {processed!r}")
                         try:
                             if placeholder_message: # Edit the message (either Thinking or the first sent chunk)
                                 await placeholder_message.edit(content=processed)
